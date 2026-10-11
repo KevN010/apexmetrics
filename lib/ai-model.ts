@@ -1,3 +1,3 @@
-import { google } from '@ai-sdk/google'
+import { openai } from '@ai-sdk/openai'
 
-export const visionModel = google('gemini-flash-latest')
+export const visionModel = openai('gpt-4o')

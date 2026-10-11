@@ -1,12 +1,16 @@
 import { z } from 'zod'
 
 export const thumbnailStatSchema = z.object({
+  id: z
+    .string()
+    .nullable()
+    .describe('Identifier shown for this thumbnail variant, or null if none is shown.'),
   label: z
     .string()
     .describe('Name or label of the thumbnail as shown in the screenshot, e.g. "Thumbnail A" or the file name.'),
   visualDescription: z
     .string()
-    .describe('One sentence describing what the thumbnail image shows, based on the preview in the screenshot.'),
+    .describe("One sentence describing this variant's actual Roblox game-thumbnail artwork preview, never a graph or dashboard element; say the preview could not be identified if uncertain."),
   impressions: z.number().nullable().describe('Number of impressions, or null if not shown.'),
   plays: z.number().nullable().describe('Number of plays / clicks, or null if not shown.'),
   playThroughRate: z
@@ -24,9 +28,7 @@ export const thumbnailStatSchema = z.object({
   box: z
     .array(z.number())
     .nullable()
-    .describe(
-      'Bounding box of the thumbnail preview image inside the screenshot as [ymin, xmin, ymax, xmax] normalized to 0-1000. Null if no preview image is visible.',
-    ),
+    .describe('Set to null during metrics extraction; thumbnail image locations are resolved separately.'),
 })
 
 export const statsExtractionSchema = z.object({
@@ -64,7 +66,7 @@ export type StatsResult = StatsExtraction & {
 const scoreSchema = z.number().min(0).max(10)
 
 export const feedbackSchema = z.object({
-  verdict: z.string().describe('One punchy sentence explaining why the winner beat the loser.'),
+  verdict: z.string().describe('A punchy, visually grounded thumbnail verdict or winner-vs-loser explanation.'),
   thumbnailScores: z.array(
     z.object({
       label: z.string(),
@@ -104,6 +106,98 @@ export const feedbackSchema = z.object({
       priority: z.enum(['high', 'medium', 'low']),
     }),
   ),
+  competitorBlueprints: z
+    .array(
+      z.object({
+        perspective: z
+          .string()
+          .min(8)
+          .max(200)
+          .describe('Step 1: Identify the visibly demonstrated camera perspective/angle, such as first-person POV, over-the-shoulder, isometric, cinematic wide-angle, or split-screen.'),
+        focalFraming: z
+          .string()
+          .min(8)
+          .max(250)
+          .describe('Step 1: Identify the actual dominant subject/object, its placement, and estimated share of the frame; report whether it occupies 60-80% or give the best evidence-based estimate.'),
+        visualHooks: z
+          .array(z.string().min(3).max(120))
+          .min(1)
+          .max(3)
+          .describe('List visible hook structures and placement/direction, such as speed lines, glow, or color splits, without copying source-game assets.'),
+        secondaryStyleInfluence: z
+          .string()
+          .min(8)
+          .max(300)
+          .describe('A restrained description of the selected competitor thumbnail’s visible FX/vibe only, to influence the final image at 30%; never include its assets, world, characters, or base art style.'),
+      }),
+    )
+    .length(1)
+    .describe('One structural blueprint for the user-selected competitor thumbnail. This is analysis, not a finished image prompt.'),
+  dynamicStyleProfile: z
+    .object({
+      characterTopology: z
+        .string()
+        .min(20)
+        .max(600)
+        .describe('Visible character and asset shapes, topology, clothing, equipment, and distinctive identity from the winning thumbnail.'),
+      renderingAndShaders: z
+        .string()
+        .min(20)
+        .max(500)
+        .describe('Visible rendering style, geometry/material finish, shaders, lighting quality, and color treatment in the winning thumbnail.'),
+      environmentAndTheme: z
+        .string()
+        .min(20)
+        .max(500)
+        .describe('Only the environment, setting, props, and thematic details visibly present in the winning thumbnail.'),
+      composition: z
+        .string()
+        .min(20)
+        .max(500)
+        .describe('Visible camera perspective, framing, layout, and primary action/focal point to preserve in winner derivatives.'),
+    })
+    .describe('Dynamic style profile extracted from the supplied winning thumbnail in the context of the target game name; use it as the target identity anchor for generation.'),
+  winnerLoserBreakdown: z
+    .object({
+      focalPointContrast: z.object({
+        analysis: z.string().describe('Why the winning thumbnail draws more attention, compared with the loser.'),
+        winnerHighlight: z.string().describe('The specific winner detail that attracts attention.'),
+        loserHighlight: z.string().describe('The specific loser detail that weakens attention.'),
+      }),
+      clarityReadability: z.object({
+        analysis: z.string().describe('Compare thumbnail readability and visual noise at small sizes.'),
+        winnerHighlight: z.string().describe('The clearest visual strength of the winner.'),
+        loserHighlight: z.string().describe('The main clutter, contrast, or framing problem in the loser.'),
+      }),
+      clickabilityFactors: z.object({
+        analysis: z.string().describe('Explain the visual factors that make the winner more clickable.'),
+        actionableInsights: z.array(z.string()).min(1).max(4),
+      }),
+      winnerAnnotations: z
+        .array(
+          z.object({
+            x: z.number().min(0).max(100).describe('Horizontal location of the highlighted feature as a percentage of image width.'),
+            y: z.number().min(0).max(100).describe('Vertical location of the highlighted feature as a percentage of image height.'),
+            label: z.string().max(80),
+            insight: z.string().max(300),
+          }),
+        )
+        .min(1)
+        .max(3),
+      loserAnnotations: z
+        .array(
+          z.object({
+            x: z.number().min(0).max(100).describe('Horizontal location of the highlighted feature as a percentage of image width.'),
+            y: z.number().min(0).max(100).describe('Vertical location of the highlighted feature as a percentage of image height.'),
+            label: z.string().max(80),
+            insight: z.string().max(300),
+          }),
+        )
+        .min(1)
+        .max(3),
+    })
+    .nullable()
+    .describe('In-depth visual comparison. Return null when no loser thumbnail was provided.'),
   closestBenchmarks: z
     .array(z.object({ gameName: z.string(), why: z.string() }))
     .describe('Up to 3 top games whose thumbnails are worth studying, using their exact names.'),

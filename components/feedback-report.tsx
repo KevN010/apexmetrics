@@ -33,7 +33,7 @@ export function FeedbackReport({ feedback, benchmarks, winnerLabel, loserLabel }
     <div className="flex flex-col gap-8">
       <p className="text-balance text-xl font-semibold leading-snug text-foreground md:text-2xl">{feedback.verdict}</p>
 
-      <section className="flex flex-col gap-3" aria-labelledby="scores-heading">
+      {feedback.thumbnailScores.length > 0 && <section className="flex flex-col gap-3" aria-labelledby="scores-heading">
         <SectionTitle>
           <span id="scores-heading">Scorecard</span>
         </SectionTitle>
@@ -88,9 +88,9 @@ export function FeedbackReport({ feedback, benchmarks, winnerLabel, loserLabel }
             )
           })}
         </div>
-      </section>
+      </section>}
 
-      <section className="flex flex-col gap-3">
+      {feedback.differences.length > 0 && <section className="flex flex-col gap-3">
         <SectionTitle>What separated the winner from the loser</SectionTitle>
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[640px] text-sm">
@@ -118,9 +118,10 @@ export function FeedbackReport({ feedback, benchmarks, winnerLabel, loserLabel }
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      {(feedback.genreTrends.length > 0 || feedback.recommendations.length > 0) && <div className="grid gap-8 lg:grid-cols-2">
+        {feedback.genreTrends.length > 0 && (
         <section className="flex flex-col gap-3">
           <SectionTitle>Genre patterns vs. your winner</SectionTitle>
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
@@ -141,9 +142,10 @@ export function FeedbackReport({ feedback, benchmarks, winnerLabel, loserLabel }
             ))}
           </ul>
         </section>
+        )}
 
-        <section className="flex flex-col gap-3">
-          <SectionTitle>Next thumbnail to test</SectionTitle>
+        {feedback.recommendations.length > 0 && <section className="flex flex-col gap-3">
+          <SectionTitle>Next steps</SectionTitle>
           <ol className="flex flex-col gap-2">
             {feedback.recommendations.map((r) => (
               <li key={r.title} className="flex flex-col gap-1 rounded-lg border border-border bg-background/50 p-3">
@@ -157,8 +159,8 @@ export function FeedbackReport({ feedback, benchmarks, winnerLabel, loserLabel }
               </li>
             ))}
           </ol>
-        </section>
-      </div>
+        </section>}
+      </div>}
 
       {feedback.closestBenchmarks.length > 0 && (
         <section className="flex flex-col gap-3">

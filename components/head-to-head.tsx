@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Crown, TrendingDown, ImageOff } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { formatCompact, formatMetric } from '@/lib/format'
+import { isImageDataUrl } from '@/lib/image-client'
 import type { RankedThumbnail, StatsResult } from '@/lib/schemas'
 import { cn } from '@/lib/utils'
 
@@ -12,15 +14,18 @@ type Props = {
 function Contender({
   thumb,
   crop,
+  onImageError,
   role,
   metricName,
 }: {
   thumb: RankedThumbnail
   crop?: string
+  onImageError: () => void
   role: 'winner' | 'loser'
   metricName: string
 }) {
   const isWinner = role === 'winner'
+  const hasCrop = isImageDataUrl(crop)
   return (
     <article
       className={cn(
@@ -29,13 +34,17 @@ function Contender({
       )}
     >
       <div className="relative aspect-video overflow-hidden rounded-md bg-muted">
-        {crop ? (
+        {hasCrop ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={crop} alt={`${thumb.label}: ${thumb.visualDescription}`} className="size-full object-cover" />
+          <img
+            src={crop}
+            alt={`${isWinner ? 'Winner' : 'Loser'} thumbnail preview`}
+            className="size-full object-cover"
+            onError={onImageError}
+          />
         ) : (
-          <div className="flex size-full flex-col items-center justify-center gap-2 p-4 text-center">
+          <div className="flex size-full items-center justify-center" aria-label="Thumbnail preview unavailable">
             <ImageOff className="size-5 text-muted-foreground" aria-hidden="true" />
-            <p className="text-pretty text-xs leading-relaxed text-muted-foreground">{thumb.visualDescription}</p>
           </div>
         )}
         <span
@@ -62,15 +71,23 @@ function Contender({
 }
 
 export function HeadToHead({ result, crops }: Props) {
+  const [failedCrops, setFailedCrops] = useState<Record<number, boolean>>({})
   const winner = result.ranked.find((t) => t.index === result.winnerIndex)
   const loser = result.ranked.find((t) => t.index === result.loserIndex)
   const maxScore = Math.max(...result.ranked.map((t) => t.score ?? 0), 0.0001)
+  const markCropFailed = (index: number) => setFailedCrops((current) => ({ ...current, [index]: true }))
 
   return (
     <div className="flex flex-col gap-5">
       {winner && loser ? (
         <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center">
-          <Contender thumb={winner} crop={crops[winner.index]} role="winner" metricName={result.primaryMetricName} />
+          <Contender
+            thumb={winner}
+            crop={failedCrops[winner.index] ? undefined : crops[winner.index]}
+            onImageError={() => markCropFailed(winner.index)}
+            role="winner"
+            metricName={result.primaryMetricName}
+          />
           <div className="flex shrink-0 flex-row items-center justify-center gap-2 md:flex-col">
             <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">vs</span>
             {result.liftPercent != null && (
@@ -79,7 +96,13 @@ export function HeadToHead({ result, crops }: Props) {
               </span>
             )}
           </div>
-          <Contender thumb={loser} crop={crops[loser.index]} role="loser" metricName={result.primaryMetricName} />
+          <Contender
+            thumb={loser}
+            crop={failedCrops[loser.index] ? undefined : crops[loser.index]}
+            onImageError={() => markCropFailed(loser.index)}
+            role="loser"
+            metricName={result.primaryMetricName}
+          />
         </div>
       ) : (
         <p className="rounded-md border border-border bg-background/50 p-4 text-sm leading-relaxed text-muted-foreground">
@@ -104,14 +127,28 @@ export function HeadToHead({ result, crops }: Props) {
             {result.ranked.map((t) => {
               const isWinner = t.index === result.winnerIndex
               const isLoser = t.index === result.loserIndex
+              const crop = failedCrops[t.index] ? undefined : crops[t.index]
+              const hasCrop = isImageDataUrl(crop)
               return (
                 <tr key={t.index} className="border-b border-border/60 last:border-0">
                   <td className="py-2.5 pr-3 font-mono text-muted-foreground">{t.rank}</td>
                   <td className="py-2.5 pr-3">
                     <div className="flex items-center gap-2">
-                      {crops[t.index] && (
+                      {hasCrop ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={crops[t.index]} alt="" className="h-7 w-12 shrink-0 rounded-sm object-cover" />
+                        <img
+                          src={crop}
+                          alt=""
+                          className="h-7 w-12 shrink-0 rounded-sm object-cover"
+                          onError={() => markCropFailed(t.index)}
+                        />
+                      ) : (
+                        <span
+                          className="flex h-7 w-12 shrink-0 items-center justify-center rounded-sm bg-muted"
+                          aria-label="Thumbnail preview unavailable"
+                        >
+                          <ImageOff className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                        </span>
                       )}
                       <span className="truncate font-medium text-foreground">{t.label}</span>
                       {isWinner && <Badge className="bg-win text-win-foreground">Winner</Badge>}
